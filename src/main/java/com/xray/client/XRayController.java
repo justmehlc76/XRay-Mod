@@ -3,12 +3,9 @@ package com.xray.client;
 import com.xray.client.render.ClientTick;
 import com.xray.client.render.XrayRenderer;
 import com.xray.common.XRay;
-import com.xray.common.reference.OreInfo;
+import com.xray.common.config.ConfigHandler;
+import com.xray.common.reference.SearchList;
 import com.xray.common.utils.WorldRegion;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -20,9 +17,9 @@ public class XRayController
 	static Minecraft mc = Minecraft.getMinecraft();
 
 	// Data
-	public static List<OreInfo> searchList = new ArrayList<>(); // List of ores/blocks to search for.
+	private static int currentDist = 0; // Index for the distNumers array. Default search distance.
+	public static final SearchList searchList = new SearchList();
 	private static Vec3i lastPlayerPos = null;
-	//private static int lastPlayerDim = 0;
 
 	// Thread management
 	private static Future task;
@@ -51,19 +48,28 @@ public class XRayController
 			executor.shutdownNow(); // no need to have a thread pool running if we don't draw ores
 		}
 	}
-
-	/**
-	 * TODO Map is rebuilt on each call. If we block direct access to
-	 * searchList, we can buffer this map. Not a real big deal tho.
-	 * @return searchList as a filtered map containing only drawable ores
-	 */
-	public static Map<OreInfo, OreInfo> getDrawableOres()
+	public static int getCurrentDist() { return currentDist; }
+	public static int getRadius() { return XRay.distNumbers[currentDist]; }
+	public static void setCurrentDist( int dist )
 	{
-		Map<OreInfo, OreInfo> ores = new HashMap<>();
-		for ( OreInfo ore : searchList )
-			if ( ore.draw )
-				ores.put( ore, ore );
-		return ores;
+		currentDist = dist;
+		ConfigHandler.storeCurrentDist();
+	}
+	public static void incrementCurrentDist()
+	{
+		if ( currentDist < XRay.distNumbers.length - 1 )
+			currentDist++;
+		else
+			currentDist = 0;
+		ConfigHandler.storeCurrentDist();
+	}
+	public static void decrementCurrentDist()
+	{
+		if ( currentDist > 0 )
+			currentDist--;
+		else
+			currentDist = XRay.distNumbers.length - 1;
+		ConfigHandler.storeCurrentDist();
 	}
 
 	/**
@@ -78,13 +84,11 @@ public class XRayController
 		return lastPlayerPos == null
 			|| lastPlayerPos.getX() != mc.player.getPosition().getX()
 			|| lastPlayerPos.getZ() != mc.player.getPosition().getZ();
-			//|| lastPlayerDim != mc.player.dimension;
 	}
 
 	public static void updatePlayerPosition()
 	{
 		lastPlayerPos = mc.player.getPosition();
-		//lastPlayerDim = mc.player.dimension;
 	}
 
 	/**
@@ -101,7 +105,7 @@ public class XRayController
 		if ( drawOres() && (task == null || task.isDone()) && (force || playerHasMoved()) ) // world/player check done by drawOres()
 		{
 			updatePlayerPosition(); // since we're about to run, update the last known position
-			WorldRegion region = new WorldRegion(lastPlayerPos, XRay.distNumbers[ XRay.currentDist ]); // the region to scan for ores
+			WorldRegion region = new WorldRegion( lastPlayerPos, getRadius() ); // the region to scan for ores
 			task = executor.submit( new ClientTick(region) );
 		}
 	}

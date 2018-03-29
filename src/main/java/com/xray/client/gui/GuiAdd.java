@@ -1,8 +1,7 @@
 package com.xray.client.gui;
 
-import com.xray.client.OresSearch;
-import com.xray.client.gui.helper.HelperBlock;
-import net.minecraft.block.Block;
+import com.xray.client.XRayController;
+import com.xray.common.reference.OreInfo;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -16,14 +15,17 @@ import java.io.IOException;
 import java.util.Objects;
 
 public class GuiAdd extends GuiContainer {
+	private static final int BUTTON_ADD = 98;
+	private static final int BUTTON_CANCEL = 99;
+
 	private GuiTextField oreName;
 	private GuiSlider redSlider;
 	private GuiSlider greenSlider;
 	private GuiSlider blueSlider;
-	private HelperBlock selectBlock;
+	private OreInfo selectBlock;
 	private boolean oreNameCleared  = false;
 
-	GuiAdd(HelperBlock selectedBlock) {
+	GuiAdd(OreInfo selectedBlock) {
 		super(false);
 		this.selectBlock = selectedBlock;
 	}
@@ -32,8 +34,8 @@ public class GuiAdd extends GuiContainer {
 	public void initGui()
 	{
 		// Called when the gui should be (re)created
-		this.buttonList.add( new GuiButton( 98, width / 2 - 100, height / 2 + 85, 128, 20, I18n.format("xray.single.add") ));
-		this.buttonList.add( new GuiButton( 99, width / 2 + 30, height / 2 + 85, 72, 20, I18n.format("xray.single.cancel") ) ); // Cancel button
+		this.buttonList.add( new GuiButton( BUTTON_ADD, width / 2 - 100, height / 2 + 85, 128, 20, I18n.format("xray.single.add") ));
+		this.buttonList.add( new GuiButton( BUTTON_CANCEL, width / 2 + 30, height / 2 + 85, 72, 20, I18n.format("xray.single.cancel") ) );
 
 		this.buttonList.add( redSlider = new GuiSlider( 3, width / 2 - 100, height / 2 + 7, I18n.format("xray.color.red"), 0, 255 ));
 		this.buttonList.add( greenSlider = new GuiSlider( 2, width / 2 - 100, height / 2 + 30, I18n.format("xray.color.green"), 0, 255 ));
@@ -44,7 +46,7 @@ public class GuiAdd extends GuiContainer {
 		blueSlider.sliderValue  = 1.0F;
 
 		oreName = new GuiTextField( 1, this.fontRenderer, width / 2 - 100 ,  height / 2 - 63, 202, 20 );
-		oreName.setText( this.selectBlock.getName() );
+		oreName.setText( this.selectBlock.getDisplayName() );
 	}
 
 	@Override
@@ -52,17 +54,16 @@ public class GuiAdd extends GuiContainer {
 	{
 		switch(button.id)
 		{
-			case 98: // Add
-				int[] rgb = {(int)(redSlider.sliderValue * 255), (int)(greenSlider.sliderValue * 255), (int)(blueSlider.sliderValue * 255)};
-
-				int tmpId = Block.getIdFromBlock(selectBlock.getBlock());
-				OresSearch.add(tmpId, selectBlock.getItemStack().getMetadata(), oreName.getText(), rgb);
-
+			case BUTTON_ADD: // Add
+				int[] color = new int[] {(int)(redSlider.sliderValue * 255), (int)(greenSlider.sliderValue * 255), (int)(blueSlider.sliderValue * 255)};
 				mc.player.closeScreen();
-				mc.displayGuiScreen( new GuiList() );
+				if ( XRayController.searchList.addOre( new OreInfo( selectBlock.getName(), selectBlock.getMeta(), color, true, false ) ) ) {
+					mc.displayGuiScreen( new GuiList() );
+				}
+
 				break;
 
-			case 99: // Cancel
+			case BUTTON_CANCEL: // Cancel
 				mc.player.closeScreen();
 				mc.displayGuiScreen( new GuiList() );
 				break;
@@ -104,7 +105,7 @@ public class GuiAdd extends GuiContainer {
 	public void drawScreen( int x, int y, float f )
     {
 		super.drawScreen(x, y, f);
-		getFontRender().drawStringWithShadow(selectBlock.getName(), width / 2 - 100, height / 2 - 90, 0xffffff);
+		getFontRender().drawStringWithShadow(selectBlock.getDisplayName(), width / 2 - 100, height / 2 - 90, 0xffffff);
 
 		oreName.drawTextBox();
 
